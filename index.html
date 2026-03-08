@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RADIOLA PRO - ULTIMATE</title>
+    <title>RADIOLA</title>
     <style>
         :root {
             --neon: #00FF41;
@@ -143,7 +143,11 @@
     const PROXY = "https://corsproxy.io/?";
     let found = [], favorites = JSON.parse(localStorage.getItem('favs') || '[]');
     let currentIdx = -1, isFavView = false;
-    const audio = document.getElementById('core'), led = document.getElementById('conn-led');
+    
+    const audio = document.getElementById('core');
+    const led = document.getElementById('conn-led');
+    const playBtn = document.getElementById('play-btn');
+    const modeText = document.getElementById('mode');
 
     function switchTab(type) {
         isFavView = (type === 'favs');
@@ -157,13 +161,10 @@
         const q = document.getElementById('query').value;
         if(!q) return;
         const list = document.getElementById('results-list');
-        list.innerHTML = '<div style="text-align:center;padding:20px;font-size:10px">SKANOWANIE CZĘSTOTLIWOŚCI...</div>';
-        
+        list.innerHTML = '<div style="text-align:center;padding:20px;font-size:10px">SKANOWANIE...</div>';
         try {
-            // Szukamy agresywnie po nazwie I tagach
             const r = await fetch(`${API}?limit=50&name=${encodeURIComponent(q)}&hidebroken=true&order=clickcount&reverse=true`);
-            const data = await r.json();
-            found = data;
+            found = await r.json();
             renderList(found);
         } catch(e) { list.innerHTML = "BŁĄD POŁĄCZENIA"; }
     }
@@ -176,21 +177,23 @@
             row.className = `station-row ${currentIdx === i ? 'playing' : ''}`;
             const isFav = favorites.some(f => f.stationuuid === s.stationuuid);
             row.innerHTML = `
-                <div style="flex:1" onclick="play(${i})">${s.name.substring(0,25)}</div>
+                <div style="flex:1" onclick="selectStation(${i})">${s.name.substring(0,25)}</div>
                 <div class="fav-star ${isFav?'active':''}" onclick="toggleFav(event, ${i})">★</div>
             `;
             list.appendChild(row);
         });
     }
 
-    function play(idx) {
+    // Nowa funkcja: tylko wybiera stację i przygotowuje audio
+    function selectStation(idx) {
         currentIdx = idx;
         const s = isFavView ? favorites[idx] : found[idx];
+        
+        // UI Updates
         document.getElementById('meta-name').innerText = s.name + " • " + (s.tags || "");
         document.getElementById('meta-details').innerText = `${s.codec} ${s.bitrate}KBPS | ${s.countrycode}`;
         document.getElementById('rate').innerText = s.bitrate + " KBPS";
         
-        // Proxy dla HTTP i obrazków
         let url = s.url_resolved || s.url;
         if(url.startsWith('http:')) url = PROXY + encodeURIComponent(url);
         
@@ -198,13 +201,42 @@
         if(favIco && favIco.startsWith('http:')) favIco = PROXY + encodeURIComponent(favIco);
         document.getElementById('cover-art').innerHTML = favIco ? `<img src="${favIco}">` : `<div style="font-size:40px">📻</div>`;
 
+        // Resetowanie audio przed nowym źródłem
+        audio.pause();
+        audio.removeAttribute('src');
+        audio.load();
+        
+        modeText.innerText = "ŁADOWANIE...";
         audio.src = url;
-        audio.play().catch(() => document.getElementById('mode').innerText = "TAP PLAY");
+        
+        // Próba autoodtwarzania
+        const startPlay = audio.play();
+        if (startPlay !== undefined) {
+            startPlay.then(() => {
+                // Sukces autoodtwarzania
+            }).catch(() => {
+                // Blokada przeglądarki - czekamy na Play
+                modeText.innerText = "TAP PLAY";
+                playBtn.innerText = "▶";
+            });
+        }
+        
         renderList(isFavView ? favorites : found);
     }
 
-    function togglePlay() { 
-        if(audio.paused) audio.play(); else audio.pause(); 
+    // Poprawiona funkcja Play/Pause
+    function togglePlay() {
+        if (!audio.src) return; // Nic nie wybrano
+
+        if (audio.paused || audio.ended) {
+            // Jeśli było zatrzymane lub zablokowane - wymuś start
+            audio.play().catch(e => {
+                modeText.innerText = "BŁĄD STREAMU";
+            });
+        } else {
+            // Jeśli faktycznie gra - zatrzymaj
+            audio.pause();
+        }
     }
 
     function toggleFav(e, idx) {
@@ -216,12 +248,31 @@
         switchTab(isFavView ? 'favs' : 'search');
     }
 
-    // Audio events
-    audio.onplaying = () => { led.classList.add('on'); document.getElementById('mode').innerText = "LIVE"; document.getElementById('play-btn').innerText = "⏸"; };
-    audio.onpause = () => { led.classList.remove('on'); document.getElementById('mode').innerText = "STOP"; document.getElementById('play-btn').innerText = "▶"; };
+    // Eventy Audio - teraz one sterują UI, co jest pewniejsze
+    audio.onplaying = () => { 
+        led.classList.add('on'); 
+        modeText.innerText = "LIVE"; 
+        playBtn.innerText = "⏸"; 
+    };
+
+    audio.onpause = () => { 
+        led.classList.remove('on'); 
+        modeText.innerText = "STOP"; 
+        playBtn.innerText = "▶"; 
+    };
+
+    audio.onwaiting = () => {
+        modeText.innerText = "BUFOROWANIE";
+    };
+
+    audio.onerror = () => {
+        modeText.innerText = "BŁĄD DEKODERA";
+        led.classList.remove('on');
+    };
+
     document.getElementById('volume').oninput = (e) => audio.volume = e.target.value;
 
-    // Visualizer
+    // Visualizer - poprawiony warunek animacji
     const vWrap = document.getElementById('visual-wrapper');
     const bars = Array.from({length: 15}, () => {
         const b = document.createElement('div'); b.className = 'v-bar';
@@ -229,18 +280,21 @@
     });
 
     function anim() {
+        // Animuj tylko gdy audio faktycznie gra i nie jest wstrzymane
+        const isActuallyPlaying = (!audio.paused && !audio.ended && audio.readyState > 2);
+        
         bars.forEach(b => {
-            const h = (!audio.paused) ? Math.random() * 100 : 10;
+            const h = isActuallyPlaying ? Math.random() * 100 : 5;
             b.style.transform = `scaleY(${h/100})`;
             b.style.backgroundColor = h > 80 ? 'var(--alert)' : (h > 50 ? 'var(--warn)' : 'var(--neon)');
         });
-        setTimeout(() => requestAnimationFrame(anim), 100);
+        setTimeout(() => requestAnimationFrame(anim), 80);
     }
     anim();
 
-    // Enter to search
     document.getElementById('query').onkeypress = (e) => { if(e.key === 'Enter') performSearch(); };
 </script>
 
 </body>
 </html>
+
