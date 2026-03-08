@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>RADIOLA</title>
+    <title>RADIOLA - RETINA LANDSCAPE</title>
     <style>
         :root {
             --neon: #00FF41;
@@ -17,284 +17,340 @@
 
         body {
             background-color: var(--bg); color: var(--neon);
-            font-family: 'Consolas', 'Courier New', monospace; font-weight: 900;
+            font-family: 'Segoe UI', 'Roboto', sans-serif; font-weight: 900;
             margin: 0; padding: 5px; height: 100vh; box-sizing: border-box;
             overflow: hidden; display: flex; flex-direction: column; text-transform: uppercase;
         }
 
-        #app-container { display: flex; flex-direction: column; height: 100%; width: 100%; gap: 5px; }
-        #top-section { display: flex; flex: 1; gap: 5px; overflow: hidden; }
+        /* GŁÓWNY KONTENER - PODZIAŁ PIONOWY (GÓRA / DÓŁ) */
+        #app-container {
+            display: flex; flex-direction: column; height: 100%; width: 100%; gap: 5px;
+        }
 
-        /* --- LEWY PANEL --- */
+        /* SEKCJA GÓRNA - PODZIAŁ POZIOMY (LEWA / PRAWA) */
+        #top-section {
+            display: flex; flex: 1; gap: 5px; overflow: hidden;
+        }
+
+        /* --- LEWY PANEL (WYSZUKIWARKA + LISTA) --- */
         #left-panel {
-            width: 230px; display: flex; flex-direction: column; gap: 5px;
+            width: 220px; display: flex; flex-direction: column; gap: 5px;
             border: var(--border-width) solid var(--neon); background: var(--panel); padding: 5px;
         }
 
-        .input-group { display: flex; gap: 3px; }
+        #search-bar { display: flex; gap: 4px; }
+        
         input[type="text"] {
             background: #000; border: 1px solid var(--dim-neon); color: var(--neon);
-            padding: 8px; font-family: inherit; width: 100%; font-size: 11px; border-radius: 0;
+            padding: 6px; font-family: inherit; font-weight: 900; width: 100%; box-sizing: border-box;
+            font-size: 11px; -webkit-appearance: none; border-radius: 0;
         }
+        input[type="text"]:focus { border-color: var(--neon); outline: none; }
 
-        .nav-tabs { display: flex; gap: 2px; margin-bottom: 2px; }
-        .tab-btn {
-            flex: 1; background: #111; border: 1px solid var(--dim-neon); color: var(--dim-neon);
-            font-size: 9px; padding: 4px; cursor: pointer;
+        .btn-small {
+            background: #000; border: 1px solid var(--neon); color: var(--neon);
+            padding: 6px 10px; font-family: inherit; font-weight: 900; font-size: 10px;
+            cursor: pointer; -webkit-appearance: none; border-radius: 0;
         }
-        .tab-btn.active { color: var(--neon); border-color: var(--neon); background: #000; }
+        .btn-small:active { background: var(--dim-neon); color: white; }
 
         #results-list {
             flex: 1; overflow-y: auto; background: #000; border: 1px solid #1a1a1a;
-            -webkit-overflow-scrolling: touch;
+            -webkit-overflow-scrolling: touch; /* Płynne przewijanie na iOS */
         }
 
         .station-row {
             padding: 8px 5px; border-bottom: 1px solid #1a1a1a; font-size: 10px;
-            display: flex; justify-content: space-between; align-items: center;
-            background: #050505; cursor: pointer;
+            cursor: pointer; background: #050505; transition: 0.2s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .station-row.playing { background: #002200; color: white; border-left: 3px solid var(--neon); }
-        .fav-star { color: #444; font-size: 14px; padding: 0 5px; }
-        .fav-star.active { color: var(--warn); }
+        .station-row.playing { background: #003300; border-left: 3px solid var(--neon); color: white; }
+        .station-row:active { background: var(--dim-neon); }
 
-        /* --- PRAWY PANEL --- */
+
+        /* --- PRAWY PANEL (GRAFIKA + INFO) --- */
         #right-panel {
             flex: 1; border: var(--border-width) solid var(--neon); background: var(--panel);
             display: flex; flex-direction: column; align-items: center; justify-content: center;
-            padding: 10px; overflow: hidden;
+            padding: 10px; position: relative;
         }
 
         #cover-art {
-            width: 90px; height: 90px; border: 2px solid var(--neon); background: #000;
-            display: flex; align-items: center; justify-content: center; margin-bottom: 8px;
+            width: 100px; height: 100px; border: 2px solid var(--neon); background: #000;
+            display: flex; align-items: center; justify-content: center; margin-bottom: 10px;
+            overflow: hidden; box-shadow: 0 0 10px rgba(0,255,65,0.2);
         }
         #cover-art img { width: 100%; height: 100%; object-fit: cover; }
+        #cover-art .placeholder { font-size: 30px; color: var(--dim-neon); }
 
-        /* Animacja przesuwania tekstu jeśli jest za długi */
-        .marquee-box { width: 100%; overflow: hidden; white-space: nowrap; margin-bottom: 5px; }
-        #meta-name { display: inline-block; font-size: 14px; padding-left: 100%; animation: marquee 10s linear infinite; }
-        
-        @keyframes marquee { 0% { transform: translate(0, 0); } 100% { transform: translate(-100%, 0); } }
+        #meta-name { margin: 0; font-size: 14px; text-align: center; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        #meta-details { margin: 5px 0 10px 0; font-size: 10px; color: #888; font-family: monospace; }
 
-        #meta-details { font-size: 9px; color: #888; margin-bottom: 10px; }
-
+        /* WIZUALIZATOR W TLE / NA DOLE PRAWEGO PANELU */
         #visual-wrapper {
-            background: #000; border: 1px solid var(--dim-neon); height: 35px; width: 90%;
-            display: flex; align-items: flex-end; justify-content: space-between; gap: 2px; padding: 2px;
+            background: #000; border: 1px solid var(--dim-neon); height: 40px; width: 80%;
+            display: flex; align-items: flex-end; justify-content: space-between;
+            gap: 2px; padding: 2px; box-sizing: border-box; overflow: hidden;
         }
-        .v-bar { background: var(--neon); flex: 1; height: 100%; transform: scaleY(0.1); will-change: transform; }
+        .v-bar { 
+            background: var(--neon); flex: 1; height: 100%; 
+            transform-origin: bottom; transform: scaleY(0.05); will-change: transform;
+        }
 
-        /* --- DOLNY BAR --- */
+
+        /* --- DOLNY PANEL (PLAYER BAR) --- */
         #bottom-bar {
-            height: 48px; border: var(--border-width) solid var(--neon); background: var(--panel);
-            display: flex; align-items: center; padding: 0 10px; gap: 10px;
+            height: 45px; border: var(--border-width) solid var(--neon); background: var(--panel);
+            display: flex; align-items: center; padding: 0 10px; gap: 15px; flex-shrink: 0;
         }
 
-        #play-btn {
-            width: 45px; height: 34px; background: var(--neon); color: black;
-            border: none; font-weight: 900; font-size: 18px; cursor: pointer;
+        #main-play-btn {
+            width: 40px; height: 30px; font-size: 16px; display: flex; align-items: center; justify-content: center;
+            background: #000; border: 2px solid var(--neon); color: var(--neon); cursor: pointer;
+        }
+        #main-play-btn:active { background: var(--neon); color: black; }
+
+        /* SUWAK GŁOŚNOŚCI */
+        input[type="range"] {
+            -webkit-appearance: none; flex: 1; background: #000; border: 1px solid var(--dim-neon); height: 15px;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none; height: 20px; width: 15px; background: var(--neon); border: 1px solid black;
         }
 
-        input[type="range"] { -webkit-appearance: none; flex: 1; height: 4px; background: var(--dim-neon); }
-        input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; width: 15px; height: 20px; background: var(--neon); }
+        #status-text { flex: 1; font-size: 10px; text-align: right; color: var(--warn); font-family: monospace; white-space: nowrap; overflow: hidden;}
 
-        #status-info { font-size: 9px; text-align: right; line-height: 1.2; max-width: 80px; }
-        .led { width: 10px; height: 10px; border-radius: 50%; background: #333; }
-        .led.on { background: #00F3FF; box-shadow: 0 0 8px #00F3FF; }
+        .status-led {
+            width: 12px; height: 12px; border-radius: 50%; border: 1px solid black; flex-shrink: 0;
+        }
+        .led-idle { background-color: #333; }
+        .led-linking { background-color: var(--warn); animation: blink-fast 0.3s infinite; }
+        .led-locked { background-color: #00F3FF; box-shadow: 0 0 10px #00F3FF; }
+        .led-error { background-color: var(--alert); box-shadow: 0 0 10px var(--alert); }
+
+        @keyframes blink-fast { 0%, 100% { opacity: 1; } 50% { opacity: 0.1; } }
+
+        /* Pasek scrolla dla webkita */
+        ::-webkit-scrollbar { width: 8px; }
+        ::-webkit-scrollbar-track { background: #000; border-left: 1px solid var(--dim-neon); }
+        ::-webkit-scrollbar-thumb { background: var(--dim-neon); }
+        ::-webkit-scrollbar-thumb:hover { background: var(--neon); }
     </style>
 </head>
 <body>
 
 <div id="app-container">
+    
     <div id="top-section">
         <div id="left-panel">
-            <div class="nav-tabs">
-                <div id="tab-search" class="tab-btn active" onclick="switchTab('search')">SZUKAJ</div>
-                <div id="tab-favs" class="tab-btn" onclick="switchTab('favs')">ULUBIONE</div>
+            <div id="search-bar">
+                <input type="text" id="scanTag" placeholder="PROMPT (np. techno)">
+                <button class="btn-small" onclick="initiateScan()">SZUKAJ</button>
             </div>
-            <div id="search-box" class="input-group">
-                <input type="text" id="query" placeholder="WPISZ FRAZĘ...">
-                <button class="tab-btn" style="flex:0; padding:0 10px" onclick="performSearch()">OK</button>
+            <div id="results-list">
+                <div style="padding:10px; font-size:10px; color:#555; text-align:center;">OCZEKIWANIE NA ZAPYTANIE...</div>
             </div>
-            <div id="results-list"></div>
         </div>
 
         <div id="right-panel">
-            <div id="cover-art"><div style="font-size:40px">📻</div></div>
-            <div class="marquee-box"><div id="meta-name">RADIOLA CORE READY...</div></div>
-            <div id="meta-details">STANDBY // NO SIGNAL</div>
+            <div id="cover-art">
+                <div class="placeholder">⚡</div>
+            </div>
+            <h2 id="meta-name">SYSTEM READY</h2>
+            <p id="meta-details">AWAITING INPUT // NO SIGNAL</p>
+            
             <div id="visual-wrapper"></div>
         </div>
     </div>
 
     <div id="bottom-bar">
-        <button id="play-btn" onclick="togglePlay()">▶</button>
-        <input type="range" id="volume" min="0" max="1" step="0.05" value="0.7">
-        <div id="status-info"><div id="rate">0 KBPS</div><div id="mode">IDLE</div></div>
-        <div id="conn-led" class="led"></div>
+        <button id="main-play-btn" onclick="toggleMainPlay()">▶</button>
+        <input type="range" id="volControl" min="0" max="1" step="0.05" value="0.7">
+        <div id="status-text">IDLE</div>
+        <div id="conn-led" class="status-led led-idle"></div>
     </div>
+
 </div>
 
-<audio id="core"></audio>
+<audio id="audio-core"></audio>
 
 <script>
-    const API = "https://de1.api.radio-browser.info/json/stations/search";
-    const PROXY = "https://corsproxy.io/?";
-    let found = [], favorites = JSON.parse(localStorage.getItem('favs') || '[]');
-    let currentIdx = -1, isFavView = false;
+    var SERVERS = ["https://de1.api.radio-browser.info", "https://at1.api.radio-browser.info"];
+    var currentServerIndex = 0;
+    var foundStations = [];
+    var activeStationIndex = -1;
     
-    const audio = document.getElementById('core');
-    const led = document.getElementById('conn-led');
-    const playBtn = document.getElementById('play-btn');
-    const modeText = document.getElementById('mode');
+    var audio = document.getElementById('audio-core');
+    var led = document.getElementById('conn-led');
+    var statusText = document.getElementById('status-text');
+    var playBtn = document.getElementById('main-play-btn');
 
-    function switchTab(type) {
-        isFavView = (type === 'favs');
-        document.getElementById('tab-search').classList.toggle('active', !isFavView);
-        document.getElementById('tab-favs').classList.toggle('active', isFavView);
-        document.getElementById('search-box').style.display = isFavView ? 'none' : 'flex';
-        isFavView ? renderList(favorites) : renderList(found);
+    // Obsługa zdarzeń Audio
+    audio.addEventListener('loadstart', function() { led.className = 'status-led led-linking'; statusText.innerText = "BUFOROWANIE..."; });
+    audio.addEventListener('playing', function() { led.className = 'status-led led-locked'; statusText.innerText = "POŁĄCZONO"; playBtn.innerText = "⏸"; });
+    audio.addEventListener('error', function() { led.className = 'status-led led-error'; statusText.innerText = "BŁĄD STRUMIENIA"; playBtn.innerText = "▶"; });
+    audio.addEventListener('pause', function() { led.className = 'status-led led-idle'; statusText.innerText = "ZATRZYMANO"; playBtn.innerText = "▶"; });
+
+    // Inicjalizacja wizualizatora
+    var vizWrapper = document.getElementById('visual-wrapper');
+    var bars = [];
+    for(var i=0; i<12; i++) {
+        var bar = document.createElement('div');
+        bar.className = 'v-bar';
+        vizWrapper.appendChild(bar);
+        bars.push(bar);
     }
 
-    async function performSearch() {
-        const q = document.getElementById('query').value;
-        if(!q) return;
-        const list = document.getElementById('results-list');
-        list.innerHTML = '<div style="text-align:center;padding:20px;font-size:10px">SKANOWANIE...</div>';
-        try {
-            const r = await fetch(`${API}?limit=50&name=${encodeURIComponent(q)}&hidebroken=true&order=clickcount&reverse=true`);
-            found = await r.json();
-            renderList(found);
-        } catch(e) { list.innerHTML = "BŁĄD POŁĄCZENIA"; }
+    function initiateScan() {
+        var tag = document.getElementById('scanTag').value.trim();
+        if(!tag) return;
+
+        var list = document.getElementById('results-list');
+        list.innerHTML = '<div style="padding:10px; font-size:10px; text-align:center; color:var(--warn);">SKANOWANIE...</div>';
+        
+        // Zmiana API query: szukamy 'name' zamiast 'tag' (daje więcej wyników), ukrywamy zepsute i żądamy min. 96kbps
+        var url = SERVERS[currentServerIndex] + "/json/stations/search?limit=60&name=" + encodeURIComponent(tag) + "&hidebroken=true&bitrateMin=96";
+        
+        fetch(url).then(function(r) { return r.json(); }).then(function(data) {
+            // Tym razem akceptujemy wszystko, posortujemy tak, by HTTPS było wyżej
+            foundStations = data.sort(function(a, b) {
+                var aHttps = (a.url && a.url.indexOf('https:') === 0) ? 1 : 0;
+                var bHttps = (b.url && b.url.indexOf('https:') === 0) ? 1 : 0;
+                return bHttps - aHttps; 
+            }).slice(0, 40);
+            
+            if(foundStations.length > 0) {
+                renderList();
+            } else {
+                // Drugie podejście: jeśli brak po nazwie, szukaj po tagu
+                var fallbackUrl = SERVERS[currentServerIndex] + "/json/stations/search?limit=40&tag=" + encodeURIComponent(tag) + "&hidebroken=true";
+                fetch(fallbackUrl).then(function(r2) { return r2.json(); }).then(function(data2) {
+                     foundStations = data2.slice(0, 40);
+                     if(foundStations.length > 0) renderList();
+                     else list.innerHTML = '<div style="padding:10px; font-size:10px; text-align:center; color:var(--alert);">BRAK WYNIKÓW</div>';
+                });
+            }
+        }).catch(function() {
+            list.innerHTML = '<div style="padding:10px; font-size:10px; text-align:center; color:var(--alert);">BŁĄD SERWERA API</div>';
+        });
     }
 
-    function renderList(items) {
-        const list = document.getElementById('results-list');
-        list.innerHTML = items.length ? '' : '<div style="text-align:center;padding:20px;font-size:10px">BRAK DANYCH</div>';
-        items.forEach((s, i) => {
-            const row = document.createElement('div');
-            row.className = `station-row ${currentIdx === i ? 'playing' : ''}`;
-            const isFav = favorites.some(f => f.stationuuid === s.stationuuid);
-            row.innerHTML = `
-                <div style="flex:1" onclick="selectStation(${i})">${s.name.substring(0,25)}</div>
-                <div class="fav-star ${isFav?'active':''}" onclick="toggleFav(event, ${i})">★</div>
-            `;
+    function renderList() {
+        var list = document.getElementById('results-list');
+        list.innerHTML = '';
+        
+        foundStations.forEach(function(s, idx) {
+            var row = document.createElement('div');
+            row.className = 'station-row';
+            row.id = 'station-row-' + idx;
+            
+            var isHttps = (s.url && s.url.indexOf('https:') === 0);
+            var secureTag = isHttps ? '<span style="color:var(--neon)">[S]</span> ' : '<span style="color:var(--warn)">[P]</span> ';
+            var safeName = s.name.substring(0, 30) || "NIEZNANA STACJA";
+            
+            row.innerHTML = secureTag + safeName;
+            row.onclick = function() { loadAndPlayStation(idx); };
             list.appendChild(row);
         });
     }
 
-    // Nowa funkcja: tylko wybiera stację i przygotowuje audio
-    function selectStation(idx) {
-        currentIdx = idx;
-        const s = isFavView ? favorites[idx] : found[idx];
+    function loadAndPlayStation(idx) {
+        var s = foundStations[idx];
         
-        // UI Updates
-        document.getElementById('meta-name').innerText = s.name + " • " + (s.tags || "");
-        document.getElementById('meta-details').innerText = `${s.codec} ${s.bitrate}KBPS | ${s.countrycode}`;
-        document.getElementById('rate').innerText = s.bitrate + " KBPS";
+        // Zmień podświetlenie na liście
+        var allRows = document.querySelectorAll('.station-row');
+        for(var j=0; j<allRows.length; j++) allRows[j].classList.remove('playing');
         
-        let url = s.url_resolved || s.url;
-        if(url.startsWith('http:')) url = PROXY + encodeURIComponent(url);
+        document.getElementById('station-row-' + idx).classList.add('playing');
+        activeStationIndex = idx;
         
-        let favIco = s.favicon;
-        if(favIco && favIco.startsWith('http:')) favIco = PROXY + encodeURIComponent(favIco);
-        document.getElementById('cover-art').innerHTML = favIco ? `<img src="${favIco}">` : `<div style="font-size:40px">📻</div>`;
-
-        // Resetowanie audio przed nowym źródłem
-        audio.pause();
-        audio.removeAttribute('src');
-        audio.load();
+        // Aktualizuj prawy panel
+        document.getElementById('meta-name').innerText = s.name || "NIEZNANA";
+        document.getElementById('meta-details').innerText = (s.codec || 'UNK') + ' ' + s.bitrate + 'Kbps | LOC: ' + (s.countrycode || 'XX');
         
-        modeText.innerText = "ŁADOWANIE...";
-        audio.src = url;
-        
-        // Próba autoodtwarzania
-        const startPlay = audio.play();
-        if (startPlay !== undefined) {
-            startPlay.then(() => {
-                // Sukces autoodtwarzania
-            }).catch(() => {
-                // Blokada przeglądarki - czekamy na Play
-                modeText.innerText = "TAP PLAY";
-                playBtn.innerText = "▶";
-            });
-        }
-        
-        renderList(isFavView ? favorites : found);
-    }
-
-    // Poprawiona funkcja Play/Pause
-    function togglePlay() {
-        if (!audio.src) return; // Nic nie wybrano
-
-        if (audio.paused || audio.ended) {
-            // Jeśli było zatrzymane lub zablokowane - wymuś start
-            audio.play().catch(e => {
-                modeText.innerText = "BŁĄD STREAMU";
-            });
+        // Ładowanie obrazka
+        var coverBox = document.getElementById('cover-art');
+        if (s.favicon) {
+            // Wymuszenie HTTPS dla obrazków (często serwowane po HTTP)
+            var imgUrl = s.favicon;
+            if (imgUrl.indexOf('http:') === 0) {
+                 imgUrl = 'https://corsproxy.io/?' + encodeURIComponent(imgUrl);
+            }
+            var img = new Image();
+            img.onload = function() { coverBox.innerHTML = '<img src="' + imgUrl + '">'; };
+            img.onerror = function() { coverBox.innerHTML = '<div class="placeholder">📻</div>'; };
+            img.src = imgUrl;
         } else {
-            // Jeśli faktycznie gra - zatrzymaj
-            audio.pause();
+            coverBox.innerHTML = '<div class="placeholder">📻</div>';
+        }
+
+        // --- KLUCZOWA ZMIANA DLA AUDIO (CORS PROXY) ---
+        var streamUrl = s.url_resolved || s.url;
+        
+        if (streamUrl.indexOf('http:') === 0) {
+            // Jeśli to zwykłe HTTP, przepuszczamy przez proxy
+            statusText.innerText = "TUNELOWANIE PROXY...";
+            streamUrl = 'https://corsproxy.io/?' + encodeURIComponent(streamUrl);
+        }
+
+        audio.src = streamUrl;
+        var playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(function(error) {
+                statusText.innerText = "KLIKNIJ PLAY (iOS BLOKADA)";
+            });
         }
     }
 
-    function toggleFav(e, idx) {
-        e.stopPropagation();
-        const s = isFavView ? favorites[idx] : found[idx];
-        const fIdx = favorites.findIndex(f => f.stationuuid === s.stationuuid);
-        if(fIdx > -1) favorites.splice(fIdx, 1); else favorites.push(s);
-        localStorage.setItem('favs', JSON.stringify(favorites));
-        switchTab(isFavView ? 'favs' : 'search');
+    // Obsługa głównego przycisku Play/Pauza
+    function toggleMainPlay() {
+        if (activeStationIndex === -1 && foundStations.length > 0) {
+            loadAndPlayStation(0);
+        } else if (activeStationIndex !== -1) {
+            if (audio.paused) {
+                audio.play();
+            } else {
+                audio.pause();
+            }
+        }
     }
 
-    // Eventy Audio - teraz one sterują UI, co jest pewniejsze
-    audio.onplaying = () => { 
-        led.classList.add('on'); 
-        modeText.innerText = "LIVE"; 
-        playBtn.innerText = "⏸"; 
+    // Obsługa suwaka głośności
+    document.getElementById('volControl').oninput = function(e) {
+        audio.volume = e.target.value;
     };
+    audio.volume = 0.7;
 
-    audio.onpause = () => { 
-        led.classList.remove('on'); 
-        modeText.innerText = "STOP"; 
-        playBtn.innerText = "▶"; 
-    };
+    // Animacja wizualizatora
+    var lastRenderTime = 0;
+    function renderVisualsOptimized(currentTime) {
+        requestAnimationFrame(renderVisualsOptimized);
+        if (currentTime - lastRenderTime < 100) return; 
+        lastRenderTime = currentTime;
 
-    audio.onwaiting = () => {
-        modeText.innerText = "BUFOROWANIE";
-    };
+        if (audio.paused || audio.readyState < 3) {
+            for(var i=0; i<bars.length; i++) {
+                bars[i].style.transform = 'scaleY(0.05)';
+                bars[i].style.backgroundColor = 'var(--dim-neon)';
+            }
+            return;
+        }
 
-    audio.onerror = () => {
-        modeText.innerText = "BŁĄD DEKODERA";
-        led.classList.remove('on');
-    };
+        for(var j=0; j<bars.length; j++) {
+            var val = Math.random() * 255;
+            bars[j].style.transform = 'scaleY(' + Math.max(0.1, val / 255) + ')';
+            
+            if(val > 220) bars[j].style.backgroundColor = 'var(--alert)';
+            else if(val > 160) bars[j].style.backgroundColor = 'var(--warn)';
+            else bars[j].style.backgroundColor = 'var(--neon)';
+        }
+    }
+    requestAnimationFrame(renderVisualsOptimized);
 
-    document.getElementById('volume').oninput = (e) => audio.volume = e.target.value;
-
-    // Visualizer - poprawiony warunek animacji
-    const vWrap = document.getElementById('visual-wrapper');
-    const bars = Array.from({length: 15}, () => {
-        const b = document.createElement('div'); b.className = 'v-bar';
-        vWrap.appendChild(b); return b;
+    // Klawisz Enter
+    document.getElementById('scanTag').addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') initiateScan();
     });
-
-    function anim() {
-        // Animuj tylko gdy audio faktycznie gra i nie jest wstrzymane
-        const isActuallyPlaying = (!audio.paused && !audio.ended && audio.readyState > 2);
-        
-        bars.forEach(b => {
-            const h = isActuallyPlaying ? Math.random() * 100 : 5;
-            b.style.transform = `scaleY(${h/100})`;
-            b.style.backgroundColor = h > 80 ? 'var(--alert)' : (h > 50 ? 'var(--warn)' : 'var(--neon)');
-        });
-        setTimeout(() => requestAnimationFrame(anim), 80);
-    }
-    anim();
-
-    document.getElementById('query').onkeypress = (e) => { if(e.key === 'Enter') performSearch(); };
 </script>
-
 </body>
 </html>
-
