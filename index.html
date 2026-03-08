@@ -202,22 +202,33 @@
     }
 
     function initiateScan() {
-        var tag = document.getElementById('scanTag').value;
+        var tag = document.getElementById('scanTag').value.trim();
         if(!tag) return;
 
         var list = document.getElementById('results-list');
         list.innerHTML = '<div style="padding:10px; font-size:10px; text-align:center; color:var(--warn);">SKANOWANIE...</div>';
         
-        var url = SERVERS[currentServerIndex] + "/json/stations/search?limit=40&tag=" + encodeURIComponent(tag) + "&hidebroken=true";
+        // Zmiana API query: szukamy 'name' zamiast 'tag' (daje więcej wyników), ukrywamy zepsute i żądamy min. 96kbps
+        var url = SERVERS[currentServerIndex] + "/json/stations/search?limit=60&name=" + encodeURIComponent(tag) + "&hidebroken=true&bitrateMin=96";
         
         fetch(url).then(function(r) { return r.json(); }).then(function(data) {
-            // Filtrujemy tylko HTTPS dla GitHub Pages/iOS
-            foundStations = data.filter(function(s) { return s.url && s.url.indexOf('https:') === 0; }).slice(0, 30);
+            // Tym razem akceptujemy wszystko, posortujemy tak, by HTTPS było wyżej
+            foundStations = data.sort(function(a, b) {
+                var aHttps = (a.url && a.url.indexOf('https:') === 0) ? 1 : 0;
+                var bHttps = (b.url && b.url.indexOf('https:') === 0) ? 1 : 0;
+                return bHttps - aHttps; 
+            }).slice(0, 40);
             
             if(foundStations.length > 0) {
                 renderList();
             } else {
-                list.innerHTML = '<div style="padding:10px; font-size:10px; text-align:center; color:var(--alert);">BRAK WYNIKÓW (HTTPS)</div>';
+                // Drugie podejście: jeśli brak po nazwie, szukaj po tagu
+                var fallbackUrl = SERVERS[currentServerIndex] + "/json/stations/search?limit=40&tag=" + encodeURIComponent(tag) + "&hidebroken=true";
+                fetch(fallbackUrl).then(function(r2) { return r2.json(); }).then(function(data2) {
+                     foundStations = data2.slice(0, 40);
+                     if(foundStations.length > 0) renderList();
+                     else list.innerHTML = '<div style="padding:10px; font-size:10px; text-align:center; color:var(--alert);">BRAK WYNIKÓW</div>';
+                });
             }
         }).catch(function() {
             list.innerHTML = '<div style="padding:10px; font-size:10px; text-align:center; color:var(--alert);">BŁĄD SERWERA API</div>';
@@ -233,9 +244,11 @@
             row.className = 'station-row';
             row.id = 'station-row-' + idx;
             
+            var isHttps = (s.url && s.url.indexOf('https:') === 0);
+            var secureTag = isHttps ? '<span style="color:var(--neon)">[S]</span> ' : '<span style="color:var(--warn)">[P]</span> ';
             var safeName = s.name.substring(0, 30) || "NIEZNANA STACJA";
-            row.innerText = safeName;
             
+            row.innerHTML = secureTag + safeName;
             row.onclick = function() { loadAndPlayStation(idx); };
             list.appendChild(row);
         });
@@ -255,19 +268,32 @@
         document.getElementById('meta-name').innerText = s.name || "NIEZNANA";
         document.getElementById('meta-details').innerText = (s.codec || 'UNK') + ' ' + s.bitrate + 'Kbps | LOC: ' + (s.countrycode || 'XX');
         
-        // Ładowanie obrazka z fallbackiem
+        // Ładowanie obrazka
         var coverBox = document.getElementById('cover-art');
         if (s.favicon) {
+            // Wymuszenie HTTPS dla obrazków (często serwowane po HTTP)
+            var imgUrl = s.favicon;
+            if (imgUrl.indexOf('http:') === 0) {
+                 imgUrl = 'https://corsproxy.io/?' + encodeURIComponent(imgUrl);
+            }
             var img = new Image();
-            img.onload = function() { coverBox.innerHTML = '<img src="' + s.favicon + '">'; };
+            img.onload = function() { coverBox.innerHTML = '<img src="' + imgUrl + '">'; };
             img.onerror = function() { coverBox.innerHTML = '<div class="placeholder">📻</div>'; };
-            img.src = s.favicon;
+            img.src = imgUrl;
         } else {
             coverBox.innerHTML = '<div class="placeholder">📻</div>';
         }
 
-        // Uruchom audio
-        audio.src = s.url_resolved || s.url;
+        // --- KLUCZOWA ZMIANA DLA AUDIO (CORS PROXY) ---
+        var streamUrl = s.url_resolved || s.url;
+        
+        if (streamUrl.indexOf('http:') === 0) {
+            // Jeśli to zwykłe HTTP, przepuszczamy przez proxy
+            statusText.innerText = "TUNELOWANIE PROXY...";
+            streamUrl = 'https://corsproxy.io/?' + encodeURIComponent(streamUrl);
+        }
+
+        audio.src = streamUrl;
         var playPromise = audio.play();
         if (playPromise !== undefined) {
             playPromise.catch(function(error) {
@@ -276,10 +302,9 @@
         }
     }
 
-    // Obsługa głównego przycisku Play/Pauza na dolnym pasku
+    // Obsługa głównego przycisku Play/Pauza
     function toggleMainPlay() {
         if (activeStationIndex === -1 && foundStations.length > 0) {
-            // Jeśli nic nie grało, odpal pierwszą stację z listy
             loadAndPlayStation(0);
         } else if (activeStationIndex !== -1) {
             if (audio.paused) {
@@ -300,7 +325,7 @@
     var lastRenderTime = 0;
     function renderVisualsOptimized(currentTime) {
         requestAnimationFrame(renderVisualsOptimized);
-        if (currentTime - lastRenderTime < 100) return; // ok. 10 FPS dla oszczędności baterii
+        if (currentTime - lastRenderTime < 100) return; 
         lastRenderTime = currentTime;
 
         if (audio.paused || audio.readyState < 3) {
@@ -322,10 +347,11 @@
     }
     requestAnimationFrame(renderVisualsOptimized);
 
-    // Obsługa klawisza Enter w wyszukiwarce
+    // Klawisz Enter
     document.getElementById('scanTag').addEventListener('keypress', function (e) {
         if (e.key === 'Enter') initiateScan();
     });
 </script>
 </body>
 </html>
+
